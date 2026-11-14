@@ -11,7 +11,9 @@ This document outlines key security practices to ensure the safe and responsible
 
 ## Kill-Switch
 - The environment variable `ENABLE_TRADING` acts as a kill-switch.
-- When `ENABLE_TRADING` is set to `false` or not set, the bot will not execute any live trades.
+- **Contract (v1):** broker orders are allowed only when `ENABLE_TRADING=true`.
+  Unset or any other value must block live/paper broker submits (dry-run / audit only).
+- **Known gap in `v0.1.0-mvp`:** code currently defaults unset to allow trading. Fix is tracked in `REVISION_V1.md` (v1.0).
 - This prevents accidental live trading during development, testing, or unexpected conditions.
 
 ## Network & API

@@ -48,7 +48,12 @@ make dash
 
 ## Documentation
 
-See [USAGE.md](USAGE.md) for full details on configuration, running in mock/live modes, backtesting, and operationalizing the bot.
+- [REVISION_V1.md](REVISION_V1.md) — active v1 revision plan (source of truth for next work)
+- [OPERATIONALIZING.md](OPERATIONALIZING.md) — scheduling, safety, paper → live hygiene
+- [SECURITY.md](SECURITY.md) — secrets, kill-switch, monitoring notes
+- [ARCHITECTURE.md](ARCHITECTURE.md) / [USAGE.md](USAGE.md) — aspirational; not the implemented product
+
+Archived MVP: git branch `archive/v0-mvp`, tag `v0.1.0-mvp`.
 
 ## Safety Notes
 

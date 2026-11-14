@@ -1,5 +1,10 @@
 # Usage Guide
 
+> **Status (v1):** Incorrect for this repository. It documents a pip package and
+> `visualize_strategy()` API that do not exist here. Use `README.md` (quick start),
+> `OPERATIONALIZING.md` (ops), and `REVISION_V1.md` (active revision plan) instead.
+> This file is kept only so links do not 404 until it is rewritten.
+
 Welcome to the Algo Bot Pro LLM Viz usage guide. This document will walk you through the steps to set up and use the tool effectively.
 
 ## Installation

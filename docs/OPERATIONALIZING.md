@@ -137,8 +137,8 @@ make run CMD='place-bracket --symbol AAPL --side buy --notional 5 --tp 0.05 --sl
 
 ## 9. Dashboards
 
-- Already: `viz-sma` and `viz-equity` PNGs.
-- Next: Streamlit dashboard to show decisions, SMA plots, equity curve.
+- CLI: `viz-sma` and `viz-equity` PNGs.
+- Streamlit: `make dash` (decisions, SMA plots, equity curve). See `REVISION_V1.md` for remaining dashboard gaps (empty mock equity, CLI shell-out).
 
 ---
 

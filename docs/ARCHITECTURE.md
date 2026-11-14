@@ -1,5 +1,11 @@
 # Architecture Overview
 
+> **Status (v1):** Aspirational / historical sketch. It describes a multi-service platform
+> (API, DB, auth, trained ML, ingestion) that this repository does **not** implement.
+> The implemented product is a local CLI + Streamlit bot. See `REVISION_V1.md`,
+> `OPERATIONALIZING.md`, and `SECURITY.md` for the active contract.
+> Archived MVP snapshot: branch `archive/v0-mvp`, tag `v0.1.0-mvp`.
+
 This document provides an overview of the architecture of the Algo Bot Pro LLM Visualization system. It describes the key components, their interactions, and the data flow within the system.
 
 ## Components

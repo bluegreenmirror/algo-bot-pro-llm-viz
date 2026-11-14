@@ -37,8 +37,10 @@ make test
 
 Run a mock trading cycle:
 ```bash
-make run CMD='run-daily --universe AAPL,MSFT --limit 40 --fast 5 --slow 20 --risk 0.01 --mock'
+make run CMD='run-daily --universe AAPL,MSFT --limit 40 --fast 5 --slow 20 --risk 0.01 --mode mock'
 ```
+
+Modes: `mock` (default), `paper`, `live`. Paper/live need Alpaca keys and `ENABLE_TRADING=true`.
 
 Launch the dashboard:
 ```bash

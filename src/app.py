@@ -52,17 +52,25 @@ def viz_sma_cmd(symbol, limit, fast, slow, mock, out):
 @click.option("--stop", "stop_loss_pct", default=0.03, type=float)
 @click.option("--take", "take_profit_pct", default=0.05, type=float)
 @click.option("--max-pos", "max_positions", default=5, type=int)
-@click.option("--mock", is_flag=True)
-@click.option("--live", is_flag=True, help="Use live Alpaca (paper) broker; default uses mock")
-def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trade: float, stop_loss_pct: float, take_profit_pct: float, max_positions: int, mock: bool, live: bool):
-    import os
-    if live and (not os.getenv("ALPACA_KEY_ID") or not os.getenv("ALPACA_SECRET_KEY")):
-        raise click.UsageError(
-            "Live mode requires ALPACA_KEY_ID/ALPACA_SECRET_KEY in .env. "
-            "Either add keys or run with --mock."
-        )
+@click.option("--mode", type=click.Choice(["mock", "paper", "live"]), default=None,
+              help="Trading mode (default mock). paper/live use Alpaca brackets.")
+@click.option("--mock", is_flag=True, help="Alias for --mode mock")
+@click.option("--live", is_flag=True, help="Alias for --mode paper (legacy)")
+def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trade: float, stop_loss_pct: float, take_profit_pct: float, max_positions: int, mode: str | None, mock: bool, live: bool):
+    from src.runtime import is_trading_enabled, require_alpaca_keys, resolve_mode
+    try:
+        resolved = resolve_mode(mode, mock=mock, live=live)
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
+
+    if resolved in ("paper", "live"):
+        try:
+            require_alpaca_keys()
+        except RuntimeError as exc:
+            raise click.UsageError(str(exc)) from exc
+
     from src.data.providers.alpaca import fetch_bars
-    if mock:
+    if resolved == "mock":
         from src.sim.providers.fake_alpaca import FakeREST
         client = FakeREST()
     else:
@@ -74,16 +82,18 @@ def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trad
         closes = [r.c for r in rows]
         bars_dict[sym] = closes
 
-    if mock:
-        from src.sim.broker.fake_broker import submit_market_order as submit_fn
-    elif live:
-        from src.broker.alpaca_client import submit_bracket_order as submit_fn
+    # Always brackets when submitting; never silent live market orders.
+    if resolved == "mock":
+        from src.sim.broker.fake_broker import submit_bracket_order as submit_fn
     else:
-        from src.broker.alpaca_client import submit_market_order as submit_fn
+        from src.broker.alpaca_client import submit_bracket_order as submit_fn
 
-    if live and os.getenv("ENABLE_TRADING", "true").lower() != "true":
+    if resolved != "mock" and not is_trading_enabled():
         submit_fn = None
-        click.echo("Trading disabled by ENABLE_TRADING=false; performing dry run.", err=True)
+        click.echo(
+            "Trading disabled (ENABLE_TRADING must be true for paper/live); dry run only.",
+            err=True,
+        )
 
     from src.execution.executor import run_daily
     result = run_daily(
@@ -93,8 +103,9 @@ def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trad
         stop_loss_pct=stop_loss_pct,
         take_profit_pct=take_profit_pct,
         max_positions=max_positions,
-        submit_fn=submit_fn
+        submit_fn=submit_fn,
     )
+    result["mode"] = resolved
     click.echo(json.dumps(result))
 
 @cli.command("viz-equity")
@@ -118,24 +129,39 @@ def viz_equity_cmd(backtest_log: str, initial: float, out: str):
 @click.option("--ref-price", type=float, default=0.0, help="Reference price for TP/SL calculation (optional)")
 @click.option("--take-profit-pct", "--tp", type=float, default=0.05, help="Take profit percentage (e.g. 0.05 for 5%)")
 @click.option("--stop-loss-pct", "--sl", type=float, default=0.03, help="Stop loss percentage (e.g. 0.03 for 3%)")
-@click.option("--live", is_flag=True, help="Use live broker instead of mock")
-def place_bracket_cmd(symbol, qty, notional, side, ref_price, take_profit_pct, stop_loss_pct, live):
-    if live:
-        from src.broker.alpaca_client import submit_bracket_order
-    else:
-        from src.sim.broker.fake_broker import submit_bracket_order
+@click.option("--mode", type=click.Choice(["mock", "paper", "live"]), default=None)
+@click.option("--live", is_flag=True, help="Alias for --mode paper (legacy)")
+def place_bracket_cmd(symbol, qty, notional, side, ref_price, take_profit_pct, stop_loss_pct, mode, live):
+    from src.runtime import is_trading_enabled, require_alpaca_keys, resolve_mode
+    try:
+        resolved = resolve_mode(mode, live=live)
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
 
     if qty is None and notional is None:
         raise click.UsageError("Either --qty or --notional must be provided")
+
+    if resolved == "mock":
+        from src.sim.broker.fake_broker import submit_bracket_order
+    else:
+        if not is_trading_enabled():
+            raise click.UsageError(
+                "ENABLE_TRADING must be true to place paper/live bracket orders"
+            )
+        try:
+            require_alpaca_keys()
+        except RuntimeError as exc:
+            raise click.UsageError(str(exc)) from exc
+        from src.broker.alpaca_client import submit_bracket_order
 
     order = submit_bracket_order(
         symbol=symbol,
         qty=qty,
         notional=notional,
         side=side,
-        ref_price=ref_price,
+        ref_price=ref_price or None,
         take_profit_pct=take_profit_pct,
-        stop_loss_pct=stop_loss_pct
+        stop_loss_pct=stop_loss_pct,
     )
     click.echo(f"Placed bracket order: {order}")
 

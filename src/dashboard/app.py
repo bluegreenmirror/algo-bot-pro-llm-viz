@@ -84,8 +84,13 @@ slow = st.sidebar.number_input("SMA Slow", min_value=3, max_value=300, value=20,
 mock = st.sidebar.checkbox("Mock mode (FakeREST)", value=True)
 
 st.sidebar.markdown("---")
-st.sidebar.header("Live/Mock Run")
-live = st.sidebar.checkbox("Live mode (bracket orders)", value=False)
+st.sidebar.header("Run mode")
+run_mode = st.sidebar.selectbox(
+    "Mode",
+    options=["mock", "paper", "live"],
+    index=0 if mock else 1,
+    help="mock = FakeREST + fake brackets; paper/live need keys and ENABLE_TRADING=true",
+)
 risk = st.sidebar.number_input("Risk per trade (fraction)", min_value=0.001, max_value=0.05, value=0.005, step=0.001, format="%.3f")
 stop = st.sidebar.number_input("Stop loss %", min_value=0.005, max_value=0.20, value=0.03, step=0.005, format="%.3f")
 take = st.sidebar.number_input("Take profit %", min_value=0.005, max_value=0.50, value=0.05, step=0.005, format="%.3f")
@@ -106,12 +111,9 @@ if run_now:
         "--risk", str(float(risk)),
         "--stop", str(float(stop)),
         "--take", str(float(take)),
-        "--max-pos", str(int(max_pos))
+        "--max-pos", str(int(max_pos)),
+        "--mode", run_mode,
     ]
-    if mock and not live:
-        cmd.append("--mock")
-    elif live:
-        cmd.append("--live")
 
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)

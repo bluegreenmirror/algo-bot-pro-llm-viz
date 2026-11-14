@@ -40,19 +40,12 @@ Validate in **mock** mode for at least a week before live.
 ```
 
 ### Option B — runner loop
-`scripts/runner.sh`:
+`scripts/runner.sh` only schedules (every 5 minutes). Weekday and trading-hours
+rules are enforced in `ComplianceEngine`.
 
 ```bash
-#!/usr/bin/env bash
-while true; do
-  dow=$(date +%u); now=$(date +%H%M)
-  if [[ $dow -ge 1 && $dow -le 5 && $now -ge 0930 && $now -le 1600 ]]; then
-    python -m src.app run-daily --universe AAPL,MSFT \\
-      --limit 40 --fast 5 --slow 20 \\
-      --risk 0.005 --stop 0.03 --take 0.05 --max-pos 2
-  fi
-  sleep 300
-done
+MODE=mock  # or paper / live
+bash scripts/runner.sh
 ```
 
 Run with:
@@ -90,13 +83,13 @@ For production: use a secrets manager.
 
 ## 4. Broker Protection
 
-- Use `place-bracket` for live entries:
+- Use `place-bracket` for paper/live entries (`ENABLE_TRADING=true` required):
 
 ```bash
-make run CMD='place-bracket --symbol AAPL --side buy --notional 5 --tp 0.05 --sl 0.03 --ref-price 150 --live'
+make run CMD='place-bracket --symbol AAPL --side buy --notional 5 --tp 0.05 --sl 0.03 --ref-price 150 --mode paper'
 ```
 
-- In `run-daily`, switch to bracket orders when live.
+- `run-daily --mode paper|live` always submits brackets (stop/take from CLI flags).
 
 ---
 

@@ -12,12 +12,12 @@ It is not an API server, user database, auth system, or pip-installable viz pack
 
 ### v1.0 Spec + safety
 
-- [ ] Demote or rewrite `ARCHITECTURE.md` and `USAGE.md` to match the bot above
-- [ ] Kill-switch: unset or `false` blocks broker orders; only explicit `true` allows them
-- [ ] Modes: `mock | paper | live` (no silent live market-order path)
-- [ ] Pass stop / take-profit through execution into bracket orders
-- [ ] Compliance owns trading hours and weekdays; runner only schedules
-- [ ] Deduplicate `.env.example`; mock runs without live keys
+- [x] Demote or rewrite `ARCHITECTURE.md` and `USAGE.md` to match the bot above
+- [x] Kill-switch: unset or `false` blocks broker orders; only explicit `true` allows them
+- [x] Modes: `mock | paper | live` (no silent live market-order path)
+- [x] Pass stop / take-profit through execution into bracket orders
+- [x] Compliance owns trading hours and weekdays; runner only schedules
+- [x] Deduplicate `.env.example`; mock runs without live keys
 
 ### v1.1 State + honest validation
 

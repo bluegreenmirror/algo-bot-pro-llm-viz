@@ -11,9 +11,9 @@ This document outlines key security practices to ensure the safe and responsible
 
 ## Kill-Switch
 - The environment variable `ENABLE_TRADING` acts as a kill-switch.
-- **Contract (v1):** broker orders are allowed only when `ENABLE_TRADING=true`.
-  Unset or any other value must block live/paper broker submits (dry-run / audit only).
-- **Known gap in `v0.1.0-mvp`:** code currently defaults unset to allow trading. Fix is tracked in `REVISION_V1.md` (v1.0).
+- Broker orders are allowed only when `ENABLE_TRADING=true`.
+  Unset or any other value blocks paper/live broker submits (dry-run / audit only).
+- Mock mode does not require the kill-switch; it never calls Alpaca.
 - This prevents accidental live trading during development, testing, or unexpected conditions.
 
 ## Network & API

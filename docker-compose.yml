@@ -1,7 +1,9 @@
 services:
   app:
     build: .
-    env_file: .env
+    # Committed defaults; copy to .env and add that file locally for secrets.
+    env_file:
+      - .env.example
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
@@ -11,7 +13,8 @@ services:
 
   dash:
     build: .
-    env_file: .env
+    env_file:
+      - .env.example
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app

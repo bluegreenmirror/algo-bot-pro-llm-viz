@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Callable, Dict, Any, List
-from datetime import datetime
 from src.strategy.sma import sma_signal, score_from_signal, blend_scores
 from src.policy.engine import PolicyEngine
 from src.compliance.engine import ComplianceEngine
@@ -37,6 +36,7 @@ def run_daily(
         final = blend_scores(sma_sc, llm.score, w=settings.llm_weight)
         scored.append({
             "symbol": sym,
+            "signal": sig,
             "score": final,
             "sma": sma_sc,
             "llm": llm.score,
@@ -66,9 +66,10 @@ def run_daily(
         closes = bars_dict[sym]
         last_price = closes[-1]
         pol = PolicyEngine().check_all(notional=min(per_trade, equity))
-        comp = ComplianceEngine().check_all(symbol=sym, now=datetime.now())
+        comp = ComplianceEngine().check_all(symbol=sym)
         decision = {
             "symbol": sym,
+            "signal": sc["signal"],
             "score": sc["score"],
             "last": last_price,
             "policy_ok": pol.ok,
@@ -76,12 +77,16 @@ def run_daily(
             "compliance_ok": comp.ok,
             "compliance_reason": comp.reason,
         }
-        if pol.ok and comp.ok and submit_fn:
-            side = "buy" if sma_signal(closes, fast=fast, slow=slow) == "buy" else "sell"
+        # Long-only until positions are persisted (v1.1): a sell without a
+        # tracked position would open a short, so only buy signals submit.
+        if sc["signal"] != "buy":
+            decision["action"] = "skipped"
+            decision["block_reason"] = f"signal {sc['signal']}; long-only entries"
+        elif pol.ok and comp.ok and submit_fn:
             order = submit_fn(
                 sym,
                 notional=per_trade,
-                side=side,
+                side="buy",
                 take_profit_pct=take_profit_pct,
                 stop_loss_pct=stop_loss_pct,
                 ref_price=last_price,

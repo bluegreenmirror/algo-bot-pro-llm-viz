@@ -3,12 +3,13 @@ import json
 from pathlib import Path
 from typing import List, Dict
 import streamlit as st
-import subprocess, tempfile
+import subprocess, sys
 import pandas as pd  # we use pandas in multiple places below
 
 # Local imports from your project
 from src.data.providers.alpaca import fetch_bars
 from src.strategy.sma import sma
+from src.dashboard.safety import allowed_modes, broker_modes_allowed, resolve_backtest_path
 
 try:
     # Optional: fake client for mock mode
@@ -33,17 +34,13 @@ def load_audit(path: str = "logs/audit.jsonl") -> List[Dict]:
     return out
 
 
-def equity_from_backtest_jsonl(path: str) -> List[float]:
+def equity_from_backtest_jsonl(text: str) -> List[float]:
     """
     Very lightweight equity curve builder from backtest jsonl trades:
     Each line is expected to be a trade dict: {ts, side, price, notional, symbol}
     """
-    p = Path(path)
-    if not p.exists():
-        return []
-
     trades: List[Dict] = []
-    for line in p.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         try:
             rec = json.loads(line)
             if {"ts","side","price","notional"}.issubset(rec):
@@ -85,12 +82,15 @@ mock = st.sidebar.checkbox("Mock mode (FakeREST)", value=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("Run mode")
+modes = allowed_modes()
 run_mode = st.sidebar.selectbox(
     "Mode",
-    options=["mock", "paper", "live"],
-    index=0 if mock else 1,
+    options=modes,
+    index=0 if mock or len(modes) == 1 else 1,
     help="mock = FakeREST + fake brackets; paper/live need keys and ENABLE_TRADING=true",
 )
+if not broker_modes_allowed():
+    st.sidebar.caption("paper/live disabled: set DASHBOARD_ALLOW_BROKER=true to enable")
 risk = st.sidebar.number_input("Risk per trade (fraction)", min_value=0.001, max_value=0.05, value=0.005, step=0.001, format="%.3f")
 stop = st.sidebar.number_input("Stop loss %", min_value=0.005, max_value=0.20, value=0.03, step=0.005, format="%.3f")
 take = st.sidebar.number_input("Take profit %", min_value=0.005, max_value=0.50, value=0.05, step=0.005, format="%.3f")
@@ -103,7 +103,7 @@ if run_now:
     # Build command to call your CLI inside the same container
     # Universe is the single symbol from the sidebar
     cmd = [
-        "python", "-m", "src.app", "run-daily",
+        sys.executable, "-m", "src.app", "run-daily",
         "--universe", symbol,
         "--limit", str(int(limit)),
         "--fast", str(int(fast)),
@@ -180,18 +180,13 @@ uploaded = st.file_uploader("Upload backtest JSONL", type=["jsonl"])
 
 curve = []
 if st.button("Load Equity Curve"):
-    tmp_path = None
-    if uploaded is not None:
-        # Save to a temporary file so equity loader can read it
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jsonl") as tf:
-            tf.write(uploaded.read())
-            tmp_path = tf.name
-        use_path = tmp_path
-    else:
-        use_path = backtest_path
-
     try:
-        curve = equity_from_backtest_jsonl(use_path)
+        if uploaded is not None:
+            text = uploaded.getvalue().decode("utf-8")
+        else:
+            path = resolve_backtest_path(backtest_path)
+            text = path.read_text(encoding="utf-8") if path.exists() else ""
+        curve = equity_from_backtest_jsonl(text)
         if curve:
             st.line_chart(curve)
         else:

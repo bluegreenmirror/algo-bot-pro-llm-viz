@@ -16,6 +16,23 @@ This document outlines key security practices to ensure the safe and responsible
 - Mock mode does not require the kill-switch; it never calls Alpaca.
 - This prevents accidental live trading during development, testing, or unexpected conditions.
 
+## Order Gates
+- Each broker mode is bound to one endpoint: `paper` requires `https://paper-api.alpaca.markets`,
+  `live` requires `https://api.alpaca.markets`. Any mismatch or non-HTTPS URL is refused.
+- `run-daily` and `place-bracket` both apply `MAX_NOTIONAL` (policy). Paper/live also apply the
+  symbol whitelist, weekdays, and trading hours (compliance).
+- Hours and weekdays are evaluated in `MARKET_TZ` (default `America/New_York`), never the host zone.
+- Entries are long-only until positions are persisted; sell and hold signals never submit orders.
+- Only the mock LLM provider is accepted; real providers are rejected until v1.2 shadow mode.
+
+## Dashboard
+- The Streamlit dashboard has no authentication. Docker publishes it on `127.0.0.1` only.
+- The mode selector offers only `mock` unless `DASHBOARD_ALLOW_BROKER=true`.
+- Backtest files load only from `logs/*.jsonl`; uploads are parsed in memory.
+
+## Dependencies
+- All requirements are pinned with `==`. CI runs `pip-audit` and `bandit` (medium and above) on every PR.
+
 ## Network & API
 - Always use HTTPS endpoints to communicate with trading APIs to ensure encrypted data transmission.
 - Restrict API keys to only the necessary permissions and scopes.

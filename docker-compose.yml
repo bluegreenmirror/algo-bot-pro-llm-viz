@@ -21,5 +21,6 @@ services:
     volumes:
       - .:/app
     command: ["streamlit", "run", "src/dashboard/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    # Loopback only: the dashboard has no auth and can trigger bot runs.
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"

@@ -57,7 +57,7 @@ def viz_sma_cmd(symbol, limit, fast, slow, mock, out):
 @click.option("--mock", is_flag=True, help="Alias for --mode mock")
 @click.option("--live", is_flag=True, help="Alias for --mode paper (legacy)")
 def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trade: float, stop_loss_pct: float, take_profit_pct: float, max_positions: int, mode: str | None, mock: bool, live: bool):
-    from src.runtime import is_trading_enabled, require_alpaca_keys, resolve_mode
+    from src.runtime import is_trading_enabled, require_alpaca_keys, require_endpoint_for_mode, resolve_mode
     try:
         resolved = resolve_mode(mode, mock=mock, live=live)
     except ValueError as exc:
@@ -66,6 +66,7 @@ def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trad
     if resolved in ("paper", "live"):
         try:
             require_alpaca_keys()
+            require_endpoint_for_mode(resolved)
         except RuntimeError as exc:
             raise click.UsageError(str(exc)) from exc
 
@@ -96,15 +97,18 @@ def run_daily_cmd(universe: str, limit: int, fast: int, slow: int, risk_per_trad
         )
 
     from src.execution.executor import run_daily
-    result = run_daily(
-        syms, bars_dict,
-        fast=fast, slow=slow,
-        risk_per_trade=risk_per_trade,
-        stop_loss_pct=stop_loss_pct,
-        take_profit_pct=take_profit_pct,
-        max_positions=max_positions,
-        submit_fn=submit_fn,
-    )
+    try:
+        result = run_daily(
+            syms, bars_dict,
+            fast=fast, slow=slow,
+            risk_per_trade=risk_per_trade,
+            stop_loss_pct=stop_loss_pct,
+            take_profit_pct=take_profit_pct,
+            max_positions=max_positions,
+            submit_fn=submit_fn,
+        )
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
     result["mode"] = resolved
     click.echo(json.dumps(result))
 
@@ -132,7 +136,9 @@ def viz_equity_cmd(backtest_log: str, initial: float, out: str):
 @click.option("--mode", type=click.Choice(["mock", "paper", "live"]), default=None)
 @click.option("--live", is_flag=True, help="Alias for --mode paper (legacy)")
 def place_bracket_cmd(symbol, qty, notional, side, ref_price, take_profit_pct, stop_loss_pct, mode, live):
-    from src.runtime import is_trading_enabled, require_alpaca_keys, resolve_mode
+    from src.compliance.engine import ComplianceEngine
+    from src.policy.engine import PolicyEngine
+    from src.runtime import is_trading_enabled, require_alpaca_keys, require_endpoint_for_mode, resolve_mode
     try:
         resolved = resolve_mode(mode, live=live)
     except ValueError as exc:
@@ -140,6 +146,15 @@ def place_bracket_cmd(symbol, qty, notional, side, ref_price, take_profit_pct, s
 
     if qty is None and notional is None:
         raise click.UsageError("Either --qty or --notional must be provided")
+    if qty is not None and notional is not None:
+        raise click.UsageError("Use either --qty or --notional, not both")
+
+    order_notional = notional if notional is not None else (qty * ref_price if ref_price else None)
+    if order_notional is None:
+        raise click.UsageError("--ref-price is required with --qty so the order notional can be checked")
+    pol = PolicyEngine().check_all(notional=order_notional)
+    if not pol.ok:
+        raise click.UsageError(f"Blocked by policy: {pol.reason}")
 
     if resolved == "mock":
         from src.sim.broker.fake_broker import submit_bracket_order
@@ -150,8 +165,12 @@ def place_bracket_cmd(symbol, qty, notional, side, ref_price, take_profit_pct, s
             )
         try:
             require_alpaca_keys()
+            require_endpoint_for_mode(resolved)
         except RuntimeError as exc:
             raise click.UsageError(str(exc)) from exc
+        comp = ComplianceEngine().check_all(symbol=symbol)
+        if not comp.ok:
+            raise click.UsageError(f"Blocked by compliance: {comp.reason}")
         from src.broker.alpaca_client import submit_bracket_order
 
     order = submit_bracket_order(
